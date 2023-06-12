@@ -290,6 +290,20 @@ pub struct Response {
     pub biolink_version: Option<String>,
 }
 
+impl Response {
+    pub fn new(message: Message) -> Response {
+        Response {
+            message,
+            status: None,
+            description: None,
+            logs: None,
+            workflow: None,
+            schema_version: None,
+            biolink_version: None,
+        }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(example = "example_query")]
