@@ -254,6 +254,17 @@ pub struct Message {
     pub auxiliary_graphs: Option<HashMap<String, AuxiliaryGraph>>,
 }
 
+impl Message {
+    pub fn new() -> Message {
+        Message {
+            results: None,
+            query_graph: None,
+            knowledge_graph: None,
+            auxiliary_graphs: None,
+        }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct AuxiliaryGraph {
