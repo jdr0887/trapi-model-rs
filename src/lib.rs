@@ -1,3 +1,4 @@
+use chrono::SecondsFormat;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -32,7 +33,11 @@ pub enum ResourceRoleEnum {
     AggregatorKnowledgeSource,
     SupportingDataSource,
 }
-
+// 2023-06-13T19:03:32.911356699+00:00
+// 1996-12-19T16:39:57-08:00
+// 2020-09-03T18:13:49+00:00
+// 2023-06-13T19:10:16.783+00:00
+// 2023-06-13T19:11:04Z
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct LogEntry {
@@ -43,6 +48,17 @@ pub struct LogEntry {
     pub code: Option<String>,
 
     pub message: Option<String>,
+}
+
+impl LogEntry {
+    pub fn new(level: Option<LogLevel>, code: Option<String>, message: Option<String>) -> LogEntry {
+        LogEntry {
+            timestamp: Some(chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+            level,
+            code,
+            message,
+        }
+    }
 }
 
 #[skip_serializing_none]
@@ -430,9 +446,7 @@ pub struct MetaKnowledgeGraph {
 
 #[cfg(test)]
 mod test {
-    use crate::model::{Analysis, Attribute, CQSCompositeScoreKey, CQSCompositeScoreValue, EdgeBinding, Message, NodeBinding, Query, ResourceRoleEnum, CURIE};
-    use crate::{util, Message, Query};
-    use itertools::{all, Itertools};
+    use crate::{Analysis, Attribute, EdgeBinding, LogEntry, LogLevel, Message, NodeBinding, Query, ResourceRoleEnum, CURIE};
     use serde::Deserializer;
     use serde_json::{Result, Value};
     use std::cmp::Ordering;
@@ -582,5 +596,12 @@ mod test {
                 assert!(true);
             }
         }
+    }
+
+    #[test]
+    fn test_log_entry() {
+        let log_entry = LogEntry::new(Some(LogLevel::ERROR), Some("QueryNotTraversable".to_string()), Some("message".to_string()));
+        println!("{}", serde_json::to_string_pretty(&log_entry).unwrap());
+        assert!(true);
     }
 }
