@@ -1,9 +1,11 @@
 use chrono::SecondsFormat;
+use merge_hashmap::Merge;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 pub type BiolinkEntity = String;
@@ -33,11 +35,7 @@ pub enum ResourceRoleEnum {
     AggregatorKnowledgeSource,
     SupportingDataSource,
 }
-// 2023-06-13T19:03:32.911356699+00:00
-// 1996-12-19T16:39:57-08:00
-// 2020-09-03T18:13:49+00:00
-// 2023-06-13T19:10:16.783+00:00
-// 2023-06-13T19:11:04Z
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct LogEntry {
@@ -62,12 +60,15 @@ impl LogEntry {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct NodeBinding {
+    #[merge(skip)]
     pub id: CURIE,
 
+    #[merge(skip)]
     pub query_id: Option<CURIE>,
 
+    #[merge(skip)]
     pub attributes: Option<Vec<Attribute>>,
 }
 
@@ -114,30 +115,40 @@ impl EdgeBinding {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Result {
+    #[merge(skip)]
     pub node_bindings: HashMap<String, Vec<NodeBinding>>,
 
+    #[merge(strategy = merge_hashmap::vec::append)]
     pub analyses: Vec<Analysis>,
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Attribute {
+    #[merge(skip)]
     pub attribute_type_id: CURIE,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub original_attribute_name: Option<String>,
 
+    #[merge(skip)]
     pub value: Value,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub value_type_id: Option<CURIE>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub attribute_source: Option<String>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub value_url: Option<String>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub description: Option<String>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub attributes: Option<Vec<Value>>,
     // pub attributes: Option<Vec<Attribute>>,
 }
@@ -212,34 +223,6 @@ pub struct QueryGraph {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-pub struct Node {
-    pub name: Option<String>,
-
-    #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
-    pub categories: Option<Vec<BiolinkEntity>>,
-
-    pub attributes: Option<Vec<Attribute>>,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-pub struct Edge {
-    pub subject: CURIE,
-
-    #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
-    pub predicate: BiolinkPredicate,
-
-    pub object: CURIE,
-
-    pub sources: Vec<RetrievalSource>,
-
-    pub attributes: Option<Vec<Attribute>>,
-
-    pub qualifiers: Option<Vec<Qualifier>>,
-}
-
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct RetrievalSource {
     pub resource_id: CURIE,
@@ -251,23 +234,122 @@ pub struct RetrievalSource {
     pub source_record_urls: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-pub struct KnowledgeGraph {
-    pub nodes: HashMap<String, Node>,
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
+pub struct Node {
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
+    pub name: Option<String>,
 
-    pub edges: HashMap<String, Edge>,
+    #[merge(strategy = merge_node_categories)]
+    #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
+    pub categories: Option<Vec<BiolinkEntity>>,
+
+    #[merge(strategy = merge_attributes)]
+    pub attributes: Option<Vec<Attribute>>,
+}
+
+fn merge_node_categories(left: &mut Option<Vec<BiolinkEntity>>, right: Option<Vec<BiolinkEntity>>) {
+    if let Some(new) = right {
+        if let Some(original) = left {
+            original.extend(new);
+        } else {
+            *left = Some(new);
+        }
+    }
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
+pub struct Edge {
+    #[merge(skip)]
+    pub subject: CURIE,
+
+    #[merge(skip)]
+    #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
+    pub predicate: BiolinkPredicate,
+
+    #[merge(skip)]
+    pub object: CURIE,
+
+    #[merge(strategy = merge_hashmap::vec::append)]
+    pub sources: Vec<RetrievalSource>,
+
+    #[merge(strategy = merge_attributes)]
+    pub attributes: Option<Vec<Attribute>>,
+
+    #[merge(strategy = merge_edge_qualifiers)]
+    pub qualifiers: Option<Vec<Qualifier>>,
+}
+
+fn merge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
+    if let Some(new) = right {
+        if let Some(original) = left {
+            original.extend(new);
+            original.sort_by(
+                |a, b| match (&a.attribute_type_id, &b.attribute_type_id, &a.original_attribute_name, &b.original_attribute_name) {
+                    (a_ati, b_ati, Some(a_oan), Some(b_oan)) => a_ati.cmp(b_ati).then(a_oan.cmp(b_oan)),
+                    (a_ati, b_ati, None, None) => a_ati.cmp(b_ati),
+                    (_, _, _, _) => Ordering::Less,
+                },
+            );
+            original.dedup();
+        } else {
+            *left = Some(new);
+        }
+    }
+}
+
+fn merge_edge_qualifiers(left: &mut Option<Vec<Qualifier>>, right: Option<Vec<Qualifier>>) {
+    if let Some(new) = right {
+        if let Some(original) = left {
+            original.extend(new);
+            original.sort_by(|a, b| a.qualifier_type_id.partial_cmp(&b.qualifier_type_id).unwrap());
+            original.dedup();
+        } else {
+            *left = Some(new);
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
+pub struct KnowledgeGraph {
+    #[merge(strategy = merge_hashmap::hashmap::intersection)]
+    pub nodes: HashMap<String, Node>,
+
+    #[merge(strategy = merge_hashmap::hashmap::intersection)]
+    pub edges: HashMap<String, Edge>,
+}
+
+impl KnowledgeGraph {
+    pub fn new(nodes: HashMap<String, Node>, edges: HashMap<String, Edge>) -> KnowledgeGraph {
+        KnowledgeGraph { nodes, edges }
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Message {
+    #[merge(strategy = merge_message_results)]
     pub results: Option<Vec<Result>>,
 
+    #[merge(skip)]
     pub query_graph: Option<QueryGraph>,
 
+    #[merge(strategy = merge_hashmap::option::recurse)]
     pub knowledge_graph: Option<KnowledgeGraph>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub auxiliary_graphs: Option<HashMap<String, AuxiliaryGraph>>,
+}
+
+fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Result>>) {
+    if let Some(new) = right {
+        if let Some(original) = left {
+            original.extend(new);
+        } else {
+            *left = Some(new);
+        }
+    }
 }
 
 impl Message {
@@ -282,10 +364,12 @@ impl Message {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct AuxiliaryGraph {
+    #[merge(skip)]
     pub edges: Vec<String>,
 
+    #[merge(strategy = merge_attributes)]
     pub attributes: Option<Vec<Attribute>>,
 }
 
@@ -359,6 +443,7 @@ fn example_query() -> Query {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[schemars(example = "example_asyncquery")]
 pub struct AsyncQuery {
     pub callback: String,
 
@@ -369,6 +454,20 @@ pub struct AsyncQuery {
     pub workflow: Option<Vec<Workflow>>,
 
     pub submitter: Option<String>,
+}
+
+fn example_asyncquery() -> AsyncQuery {
+    let data = r#"{
+      "message": {
+        "query_graph": {
+          "nodes": {"n1": {"ids": ["MONDO:0009061", "MONDO:0004979"]}, "n0": {"categories": ["biolink:ChemicalEntity"]}},
+          "edges": {"e0": {"subject": "n0", "object": "n1", "predicates": ["biolink:treats"], "knowledge_type": "inferred"}}
+        }
+      },
+      "callback": "SOME_URL"
+    }"#;
+    let query: AsyncQuery = serde_json::from_str(data).expect("could not parse example Query data");
+    query
 }
 
 #[skip_serializing_none]
@@ -446,16 +545,15 @@ pub struct MetaKnowledgeGraph {
 
 #[cfg(test)]
 mod test {
-    use crate::{Analysis, Attribute, EdgeBinding, LogEntry, LogLevel, Message, NodeBinding, Query, ResourceRoleEnum, CURIE};
+    use crate::{Analysis, Attribute, EdgeBinding, LogEntry, LogLevel, Message, NodeBinding, Query, ResourceRoleEnum, Response, CURIE};
+    use merge_hashmap::Merge;
     use serde::Deserializer;
     use serde_json::{Result, Value};
     use std::cmp::Ordering;
     use std::collections::HashMap;
     use std::fs;
-    use std::num::FpCategory::Nan;
 
     #[test]
-    #[ignore]
     fn untyped_example() {
         // Some JSON input data as a &str. Maybe this comes from the user.
         let data = r#"{
@@ -528,9 +626,7 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn treats_inferred() {
-        // Some JSON input data as a &str. Maybe this comes from the user.
         let data = r#"{ 
             "message": { 
                 "query_graph": { 
@@ -546,7 +642,6 @@ mod test {
 
     #[test]
     #[should_panic]
-    #[ignore]
     fn invalid_biolink_entity() {
         let data = r#"{ 
             "message": { 
@@ -563,7 +658,6 @@ mod test {
 
     #[test]
     #[should_panic]
-    #[ignore]
     fn invalid_biolink_predicate() {
         let data = r#"{ 
             "message": { 
@@ -603,5 +697,43 @@ mod test {
         let log_entry = LogEntry::new(Some(LogLevel::ERROR), Some("QueryNotTraversable".to_string()), Some("message".to_string()));
         println!("{}", serde_json::to_string_pretty(&log_entry).unwrap());
         assert!(true);
+    }
+
+    #[test]
+    fn test_merge() {
+        let left_query_data = fs::read_to_string("mondo_0004979_output.pretty.json").unwrap();
+        let left_query: Query = serde_json::from_str(&left_query_data).unwrap();
+        let mut left_message = left_query.message;
+
+        let right_query_data = fs::read_to_string("mondo_0009061_output.pretty.json").unwrap();
+        let right_query: Query = serde_json::from_str(&right_query_data).unwrap();
+        let right_message = right_query.message;
+
+        let before_merge = match &left_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+
+        left_message.merge(right_message);
+
+        let after_merge = match &left_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        assert!(before_merge < after_merge);
+
+        if let Some(kg) = left_message.knowledge_graph {
+            if let Some(node) = kg.nodes.get("PUBCHEM.COMPOUND:16220172") {
+                if let Some(attributes) = &node.attributes {
+                    assert_eq!(attributes.len(), 2);
+                } else {
+                    assert!(false);
+                }
+            } else {
+                assert!(false);
+            }
+        } else {
+            assert!(false);
+        }
     }
 }
