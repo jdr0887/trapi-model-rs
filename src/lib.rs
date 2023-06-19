@@ -480,6 +480,16 @@ pub struct AsyncQueryResponse {
     pub description: Option<String>,
 }
 
+impl AsyncQueryResponse {
+    pub fn new(job_id: String) -> AsyncQueryResponse {
+        AsyncQueryResponse {
+            job_id,
+            status: None,
+            description: None,
+        }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct AsyncQueryStatusResponse {
