@@ -313,10 +313,10 @@ fn merge_edge_qualifiers(left: &mut Option<Vec<Qualifier>>, right: Option<Vec<Qu
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct KnowledgeGraph {
-    #[merge(strategy = merge_hashmap::hashmap::intersection)]
+    #[merge(strategy = merge_hashmap::hashmap::recurse)]
     pub nodes: HashMap<String, Node>,
 
-    #[merge(strategy = merge_hashmap::hashmap::intersection)]
+    #[merge(strategy = merge_hashmap::hashmap::recurse)]
     pub edges: HashMap<String, Edge>,
 }
 
@@ -745,5 +745,105 @@ mod test {
         } else {
             assert!(false);
         }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_merge_three_files() {
+        let first_response_content = fs::read_to_string("/tmp/cqs/68c1ade2-5a20-418d-a62a-2ca53a35f998.json").unwrap();
+        let first_response: Response = serde_json::from_str(&first_response_content).unwrap();
+        let mut first_response_message = first_response.message;
+
+        match &first_response_message.knowledge_graph {
+            Some(kg) => match (&kg.nodes, &kg.edges) {
+                (nodes, edges) => {
+                    println!("1st - kg.nodes.len(): {}, kg.edges.len(): {}", nodes.len(), edges.len());
+                }
+                _ => {}
+            },
+            _ => {}
+        };
+
+        let second_response_content = fs::read_to_string("/tmp/cqs/7fb94d9d-3f31-432c-b528-1b168aaca6e1.json").unwrap();
+        let second_response: Response = serde_json::from_str(&second_response_content).unwrap();
+        let mut second_response_message = second_response.message;
+
+        match &second_response_message.knowledge_graph {
+            Some(kg) => match (&kg.nodes, &kg.edges) {
+                (nodes, edges) => {
+                    println!("2nd - kg.nodes.len(): {}, kg.edges.len(): {}", nodes.len(), edges.len());
+                }
+                _ => {}
+            },
+            _ => {}
+        };
+
+        let third_response_content = fs::read_to_string("/tmp/cqs/8c93ec5e-1140-4ec1-9115-4fc3e51131fc.json").unwrap();
+        let third_response: Response = serde_json::from_str(&third_response_content).unwrap();
+        let mut third_response_message = third_response.message;
+
+        match &third_response_message.knowledge_graph {
+            Some(kg) => match (&kg.nodes, &kg.edges) {
+                (nodes, edges) => {
+                    println!("3rd - kg.nodes.len(): {}, kg.edges.len(): {}", nodes.len(), edges.len());
+                }
+                _ => {}
+            },
+            _ => {}
+        };
+
+        let first_result_count_pre_merge = match &third_response_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        println!("pre merge - first: {}", first_result_count_pre_merge);
+
+        let second_result_count_pre_merge = match &second_response_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        println!("pre merge - second: {}", second_result_count_pre_merge);
+
+        let third_result_count_pre_merge = match &third_response_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        println!("pre merge - third: {}", third_result_count_pre_merge);
+
+        first_response_message.merge(second_response_message);
+        first_response_message.merge(third_response_message);
+
+        match &first_response_message.knowledge_graph {
+            Some(kg) => match (&kg.nodes, &kg.edges) {
+                (nodes, edges) => {
+                    println!("1st - post merge - kg.nodes.len(): {}, kg.edges.len(): {}", nodes.len(), edges.len());
+                }
+                _ => {}
+            },
+            _ => {}
+        };
+
+        let first_result_count_post_merge = match &first_response_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        println!("post merge: {}", first_result_count_post_merge);
+        // assert!(before_merge < after_merge);
+
+        std::fs::write(std::path::Path::new("/tmp/test.json"), serde_json::to_string_pretty(&first_response_message).unwrap()).expect("failed to write output");
+
+        // if let Some(kg) = left_message.knowledge_graph {
+        //     if let Some(node) = kg.nodes.get("PUBCHEM.COMPOUND:16220172") {
+        //         if let Some(attributes) = &node.attributes {
+        //             assert_eq!(attributes.len(), 2);
+        //         } else {
+        //             assert!(false);
+        //         }
+        //     } else {
+        //         assert!(false);
+        //     }
+        // } else {
+        //     assert!(false);
+        // }
     }
 }
