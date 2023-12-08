@@ -379,6 +379,12 @@ pub struct AuxiliaryGraph {
     pub attributes: Option<Vec<Attribute>>,
 }
 
+impl AuxiliaryGraph {
+    pub fn new(edges: Vec<String>) -> AuxiliaryGraph {
+        AuxiliaryGraph { edges, attributes: None }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Workflow {
