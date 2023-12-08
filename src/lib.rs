@@ -124,6 +124,12 @@ pub struct Result {
     pub analyses: Vec<Analysis>,
 }
 
+impl Result {
+    pub fn new(node_bindings: HashMap<String, Vec<NodeBinding>>, analyses: Vec<Analysis>) -> Result {
+        Result { node_bindings, analyses }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Attribute {
