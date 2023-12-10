@@ -287,6 +287,19 @@ pub struct Edge {
     pub qualifiers: Option<Vec<Qualifier>>,
 }
 
+impl Edge {
+    pub fn new(subject: CURIE, predicate: BiolinkPredicate, object: CURIE, sources: Vec<RetrievalSource>) -> Edge {
+        Edge {
+            subject,
+            predicate,
+            object,
+            sources,
+            attributes: None,
+            qualifiers: None,
+        }
+    }
+}
+
 fn merge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
     if let Some(new) = right {
         if let Some(original) = left {
