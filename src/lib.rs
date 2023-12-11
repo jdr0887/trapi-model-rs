@@ -383,11 +383,21 @@ pub struct Message {
     #[merge(strategy = merge_hashmap::option::recurse)]
     pub knowledge_graph: Option<KnowledgeGraph>,
 
-    #[merge(strategy = merge_hashmap::option::recurse)]
+    #[merge(strategy = merge_message_auxiliary_graphs)]
     pub auxiliary_graphs: Option<HashMap<String, AuxiliaryGraph>>,
 }
 
 fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Result>>) {
+    if let Some(new) = right {
+        if let Some(original) = left {
+            original.extend(new);
+        } else {
+            *left = Some(new);
+        }
+    }
+}
+
+fn merge_message_auxiliary_graphs(left: &mut Option<HashMap<String, AuxiliaryGraph>>, right: Option<HashMap<String, AuxiliaryGraph>>) {
     if let Some(new) = right {
         if let Some(original) = left {
             original.extend(new);
