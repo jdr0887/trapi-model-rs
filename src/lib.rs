@@ -383,7 +383,7 @@ pub struct Message {
     #[merge(strategy = merge_hashmap::option::recurse)]
     pub knowledge_graph: Option<KnowledgeGraph>,
 
-    #[merge(strategy = merge_hashmap::option::overwrite_none)]
+    #[merge(strategy = merge_hashmap::option::recurse)]
     pub auxiliary_graphs: Option<HashMap<String, AuxiliaryGraph>>,
 }
 
