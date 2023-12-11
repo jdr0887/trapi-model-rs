@@ -159,6 +159,21 @@ pub struct Attribute {
     // pub attributes: Option<Vec<Attribute>>,
 }
 
+impl Attribute {
+    pub fn new(attribute_type_id: CURIE, value: Value) -> Attribute {
+        Attribute {
+            attribute_type_id,
+            original_attribute_name: None,
+            value,
+            value_type_id: None,
+            attribute_source: None,
+            value_url: None,
+            description: None,
+            attributes: None,
+        }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct AttributeConstraint {
@@ -238,6 +253,17 @@ pub struct RetrievalSource {
     pub upstream_resource_ids: Option<Vec<CURIE>>,
 
     pub source_record_urls: Option<Vec<String>>,
+}
+
+impl RetrievalSource {
+    pub fn new(resource_id: CURIE, resource_role: ResourceRoleEnum) -> RetrievalSource {
+        RetrievalSource {
+            resource_id,
+            resource_role,
+            upstream_resource_ids: None,
+            source_record_urls: None,
+        }
+    }
 }
 
 #[skip_serializing_none]
