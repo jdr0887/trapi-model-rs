@@ -6,10 +6,10 @@ edition = "2021"
 
 [dependencies]
 chrono = "^0.4"
-merge-hashmap = { version = "0.1.2", features = ["default", "merge_derive-hashmap"] }
-rocket_okapi = { version = "0.8.0-rc.2", features = ["swagger", "rapidoc"] }
+merge-hashmap = { version = "^0.1", features = ["default", "merge_derive-hashmap"] }
+rocket_okapi = { version = "0.8.0-rc.3", features = ["swagger", "rapidoc"] }
 serde = { version = "^1.0", features = ["derive", "serde_derive"] }
 serde_derive = "^1.0"
-serde_json = "^1.0"
-serde_with = { version = "^2.3", features = ["std", "macros", "json"] }
+serde_json = { version = "^1.0", features = ["default", "preserve_order"] }
+serde_with = { version = "^3.5", features = ["std", "macros", "json"] }
 
