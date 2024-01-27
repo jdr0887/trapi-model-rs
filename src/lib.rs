@@ -222,18 +222,20 @@ pub struct QNode {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct QEdge {
-    pub knowledge_type: Option<KnowledgeType>,
-
-    pub subject: String,
-
     #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
     pub predicates: Option<Vec<BiolinkPredicate>>,
 
+    pub subject: String,
+
     pub object: String,
+
+    pub knowledge_type: Option<KnowledgeType>,
 
     pub attribute_constraints: Option<Vec<AttributeConstraint>>,
 
     pub qualifier_constraints: Option<Vec<QualifierConstraint>>,
+
+    pub provided_by: Option<Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
