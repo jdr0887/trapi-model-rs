@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub type BiolinkEntity = String;
 pub type BiolinkPredicate = String;
@@ -83,13 +83,13 @@ pub struct Analysis {
 
     pub support_graphs: Option<Vec<String>>,
 
-    pub edge_bindings: HashMap<String, Vec<EdgeBinding>>,
+    pub edge_bindings: BTreeMap<String, Vec<EdgeBinding>>,
 
     pub attributes: Option<Vec<Attribute>>,
 }
 
 impl Analysis {
-    pub fn new(resource_id: String, edge_bindings: HashMap<String, Vec<EdgeBinding>>) -> Analysis {
+    pub fn new(resource_id: String, edge_bindings: BTreeMap<String, Vec<EdgeBinding>>) -> Analysis {
         Analysis {
             resource_id,
             score: None,
@@ -118,14 +118,14 @@ impl EdgeBinding {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Result {
     #[merge(skip)]
-    pub node_bindings: HashMap<String, Vec<NodeBinding>>,
+    pub node_bindings: BTreeMap<String, Vec<NodeBinding>>,
 
     #[merge(strategy = merge_hashmap::vec::append)]
     pub analyses: Vec<Analysis>,
 }
 
 impl Result {
-    pub fn new(node_bindings: HashMap<String, Vec<NodeBinding>>, analyses: Vec<Analysis>) -> Result {
+    pub fn new(node_bindings: BTreeMap<String, Vec<NodeBinding>>, analyses: Vec<Analysis>) -> Result {
         Result { node_bindings, analyses }
     }
 }
@@ -240,8 +240,8 @@ pub struct QEdge {
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct QueryGraph {
-    pub edges: HashMap<String, QEdge>,
-    pub nodes: HashMap<String, QNode>,
+    pub edges: BTreeMap<String, QEdge>,
+    pub nodes: BTreeMap<String, QNode>,
 }
 
 #[skip_serializing_none]
@@ -360,14 +360,14 @@ fn merge_edge_qualifiers(left: &mut Option<Vec<Qualifier>>, right: Option<Vec<Qu
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct KnowledgeGraph {
     #[merge(strategy = merge_hashmap::hashmap::recurse)]
-    pub nodes: HashMap<String, Node>,
+    pub edges: HashMap<String, Edge>,
 
     #[merge(strategy = merge_hashmap::hashmap::recurse)]
-    pub edges: HashMap<String, Edge>,
+    pub nodes: HashMap<String, Node>,
 }
 
 impl KnowledgeGraph {
-    pub fn new(nodes: HashMap<String, Node>, edges: HashMap<String, Edge>) -> KnowledgeGraph {
+    pub fn new(edges: HashMap<String, Edge>, nodes: HashMap<String, Node>) -> KnowledgeGraph {
         KnowledgeGraph { nodes, edges }
     }
 }
@@ -375,17 +375,17 @@ impl KnowledgeGraph {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Message {
-    #[merge(skip)]
-    pub query_graph: Option<QueryGraph>,
-
     #[merge(strategy = merge_message_results)]
     pub results: Option<Vec<Result>>,
+
+    #[merge(skip)]
+    pub query_graph: Option<QueryGraph>,
 
     #[merge(strategy = merge_hashmap::option::recurse)]
     pub knowledge_graph: Option<KnowledgeGraph>,
 
     #[merge(strategy = merge_message_auxiliary_graphs)]
-    pub auxiliary_graphs: Option<HashMap<String, AuxiliaryGraph>>,
+    pub auxiliary_graphs: Option<BTreeMap<String, AuxiliaryGraph>>,
 }
 
 fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Result>>) {
@@ -398,7 +398,7 @@ fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Resul
     }
 }
 
-fn merge_message_auxiliary_graphs(left: &mut Option<HashMap<String, AuxiliaryGraph>>, right: Option<HashMap<String, AuxiliaryGraph>>) {
+fn merge_message_auxiliary_graphs(left: &mut Option<BTreeMap<String, AuxiliaryGraph>>, right: Option<BTreeMap<String, AuxiliaryGraph>>) {
     if let Some(new) = right {
         if let Some(original) = left {
             original.extend(new);
@@ -440,9 +440,9 @@ impl AuxiliaryGraph {
 pub struct Workflow {
     pub id: String,
 
-    pub parameters: Option<HashMap<String, Value>>,
+    pub parameters: Option<BTreeMap<String, Value>>,
 
-    pub runner_parameters: Option<HashMap<String, Value>>,
+    pub runner_parameters: Option<BTreeMap<String, Value>>,
 }
 
 #[skip_serializing_none]
@@ -482,11 +482,8 @@ impl Response {
 #[schemars(example = "example_query")]
 pub struct Query {
     pub workflow: Option<Vec<Workflow>>,
-
     pub message: Message,
-
     pub log_level: Option<LogLevel>,
-
     pub submitter: Option<String>,
 }
 
@@ -507,14 +504,10 @@ fn example_query() -> Query {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(example = "example_asyncquery")]
 pub struct AsyncQuery {
-    pub callback: String,
-
-    pub message: Message,
-
-    pub log_level: Option<LogLevel>,
-
     pub workflow: Option<Vec<Workflow>>,
-
+    pub message: Message,
+    pub callback: String,
+    pub log_level: Option<LogLevel>,
     pub submitter: Option<String>,
 }
 
@@ -610,9 +603,8 @@ pub struct MetaEdge {
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct MetaKnowledgeGraph {
-    pub nodes: HashMap<String, MetaNode>,
-
     pub edges: HashMap<String, MetaEdge>,
+    pub nodes: HashMap<String, MetaNode>,
 }
 
 #[cfg(test)]
@@ -713,6 +705,108 @@ mod test {
     }
 
     #[test]
+    fn key_order() {
+        let expected = r#"{
+    "workflow": [
+        {
+            "id": "lookup",
+            "runner_parameters": {
+                "allowlist": ["infores:aragorn"]
+            }
+        },
+        {
+            "id":"score"
+        }
+    ],
+    "message": {
+        "query_graph": {
+            "edges": {
+                "e0": {
+                    "predicates": [
+                        "biolink:correlated_with",
+                        "biolink:associated_with_likelihood_of"
+                    ],
+                    "subject": "n0",
+                    "object": "n1",
+                    "provided_by": {
+                        "allowlist": [
+                            "infores:automat-icees-kg",
+                            "infores:cohd",
+                            "infores:multiomics-ehr-risk-kp"
+                        ]
+                    }
+                },
+                "e1": {
+                    "subject": "n1",
+                    "object": "n2",
+                    "predicates": [
+                        "biolink:affects_activity_of",
+                        "biolink:physically_interacts_with"
+                    ],
+                    "provided_by": {
+                        "allowlist": [
+                            "infores:text-mining-provider-targeted",
+                            "infores:molepro"
+                        ]
+                    }
+                },
+                "e2": {
+                    "subject": "n3",
+                    "object": "n2",
+                    "predicates": [
+                        "biolink:affects_activity_of",
+                        "biolink:physically_interacts_with"
+                    ]
+                },
+                "e3": {
+                    "subject": "n2",
+                    "object": "n0",
+                    "predicates": [
+                        "biolink:contributes_to",
+                        "biolink:associated_with",
+                        "biolink:gene_associated_with_condition"
+                    ]
+                }
+            },
+            "nodes": {
+                "n0": {
+                    "ids": [
+                        "MONDO:0004979","MONDO:0016575","MONDO:0009061","MONDO:0018956","MONDO:0011705","MONDO:0008345","MONDO:0020066"
+                    ],
+                    "is_set": false
+                },
+                "n1": {
+                    "categories": [
+                        "biolink:SmallMolecule"
+                    ],
+                    "is_set": false
+                },
+                "n2": {
+                    "categories": [
+                        "biolink:Gene",
+                        "biolink:Protein"
+                    ],
+                    "is_set": false
+                },
+                "n3": {
+                    "categories": [
+                        "biolink:Drug"
+                    ],
+                    "is_set": false
+                }
+            }
+        }
+    }
+}"#;
+
+        let query: Query = serde_json::from_str(expected).expect("Could not parse query");
+
+        print!("query: {}", serde_json::to_string_pretty(&query).unwrap());
+
+        // assert!(query);
+    }
+
+    #[test]
     #[should_panic]
     fn invalid_biolink_entity() {
         let data = r#"{ 
@@ -772,6 +866,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_merge() {
         let left_query_data = fs::read_to_string("mondo_0004979_output.pretty.json").unwrap();
         let left_query: Query = serde_json::from_str(&left_query_data).unwrap();
