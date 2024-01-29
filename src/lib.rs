@@ -240,9 +240,8 @@ pub struct QEdge {
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct QueryGraph {
-    pub nodes: HashMap<String, QNode>,
-
     pub edges: HashMap<String, QEdge>,
+    pub nodes: HashMap<String, QNode>,
 }
 
 #[skip_serializing_none]
@@ -376,11 +375,11 @@ impl KnowledgeGraph {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Message {
-    #[merge(strategy = merge_message_results)]
-    pub results: Option<Vec<Result>>,
-
     #[merge(skip)]
     pub query_graph: Option<QueryGraph>,
+
+    #[merge(strategy = merge_message_results)]
+    pub results: Option<Vec<Result>>,
 
     #[merge(strategy = merge_hashmap::option::recurse)]
     pub knowledge_graph: Option<KnowledgeGraph>,
@@ -449,6 +448,8 @@ pub struct Workflow {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Response {
+    pub workflow: Option<Vec<Workflow>>,
+
     pub message: Message,
 
     pub status: Option<String>,
@@ -456,8 +457,6 @@ pub struct Response {
     pub description: Option<String>,
 
     pub logs: Option<Vec<LogEntry>>,
-
-    pub workflow: Option<Vec<Workflow>>,
 
     pub schema_version: Option<String>,
 
@@ -482,11 +481,11 @@ impl Response {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(example = "example_query")]
 pub struct Query {
+    pub workflow: Option<Vec<Workflow>>,
+
     pub message: Message,
 
     pub log_level: Option<LogLevel>,
-
-    pub workflow: Option<Vec<Workflow>>,
 
     pub submitter: Option<String>,
 }
