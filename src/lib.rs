@@ -181,11 +181,11 @@ pub struct AttributeConstraint {
 
     pub name: String,
 
-    pub not: bool,
-
     pub operator: String,
 
     pub value: String,
+
+    pub not: Option<bool>,
 
     pub unit_id: Option<String>,
 
@@ -640,7 +640,7 @@ mod test {
                     "x17770": { 
                         "predicate": "biolink:related_to", 
                         "subject": "MONDO:0005737", 
-                        "object": "HGNC:17770", 
+                        "object": "HGNC:17770",
                         "sources": [{
                             "resource_id": "infores:kp0",
                             "resource_role": "primary_knowledge_source"
@@ -695,7 +695,7 @@ mod test {
             "message": { 
                 "query_graph": { 
                     "nodes": {"n1": {"ids": ["MONDO:0009061", "MONDO:0004979"]}, "n0": {"categories": ["biolink:ChemicalEntity"]}}, 
-                    "edges": {"e0": {"subject": "n0", "object": "n1", "predicates": ["biolink:treats"], "knowledge_type": "inferred"}} 
+                    "edges": {"e0": {"subject": "n0", "object": "n1", "predicates": ["biolink:treats"], "knowledge_type": "inferred", "attribute_constraints": [{ "name": "evidence_count gt 20", "id": "biolink:evidence_count", "operator": ">", "value": "20"}]}} 
                 } 
             } 
         }"#;
