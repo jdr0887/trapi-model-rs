@@ -183,7 +183,7 @@ pub struct AttributeConstraint {
 
     pub operator: String,
 
-    pub value: String,
+    pub value: Value,
 
     pub not: Option<bool>,
 
