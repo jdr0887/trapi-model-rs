@@ -36,22 +36,31 @@ pub enum ResourceRoleEnum {
     SupportingDataSource,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub enum AsyncQueryStatusResponseStatusEnum {
+    QUEUED,
+    RUNNING,
+    COMPLETED,
+    FAILED,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct LogEntry {
-    pub timestamp: Option<String>,
+    pub timestamp: String,
 
     pub level: Option<LogLevel>,
 
     pub code: Option<String>,
 
-    pub message: Option<String>,
+    pub message: String,
 }
 
 impl LogEntry {
-    pub fn new(level: Option<LogLevel>, code: Option<String>, message: Option<String>) -> LogEntry {
+    pub fn new(level: Option<LogLevel>, code: Option<String>, message: String) -> LogEntry {
         LogEntry {
-            timestamp: Some(chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+            timestamp: chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
             level,
             code,
             message,
@@ -69,13 +78,13 @@ pub struct NodeBinding {
     pub query_id: Option<CURIE>,
 
     #[merge(skip)]
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Analysis {
-    pub resource_id: String,
+    pub resource_id: CURIE,
 
     pub score: Option<f64>,
 
@@ -101,17 +110,16 @@ impl Analysis {
     }
 }
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct EdgeBinding {
     pub id: String,
 
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
 }
 
 impl EdgeBinding {
-    pub fn new(id: String) -> EdgeBinding {
-        EdgeBinding { id, attributes: None }
+    pub fn new(id: String, attributes: Vec<Attribute>) -> EdgeBinding {
+        EdgeBinding { id, attributes }
     }
 }
 
@@ -205,6 +213,13 @@ pub struct QualifierConstraint {
     pub qualifier_set: Vec<Qualifier>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub enum SetInterpretationEnum {
+    BATCH,
+    ALL,
+    MANY,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct QNode {
@@ -214,7 +229,7 @@ pub struct QNode {
     #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
     pub categories: Option<Vec<BiolinkEntity>>,
 
-    pub is_set: Option<bool>,
+    pub set_interpretation: Option<SetInterpretationEnum>,
 
     pub constraints: Option<Vec<AttributeConstraint>>,
 }
@@ -267,7 +282,6 @@ impl RetrievalSource {
     }
 }
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Node {
     #[merge(strategy = merge_hashmap::option::overwrite_none)]
@@ -275,10 +289,12 @@ pub struct Node {
 
     #[merge(strategy = merge_node_categories)]
     #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
-    pub categories: Option<Vec<BiolinkEntity>>,
+    pub categories: Vec<BiolinkEntity>,
 
     #[merge(strategy = merge_attributes)]
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
+
+    pub is_set: Option<bool>,
 }
 
 fn merge_node_categories(left: &mut Option<Vec<BiolinkEntity>>, right: Option<Vec<BiolinkEntity>>) {
@@ -419,19 +435,18 @@ impl Message {
     }
 }
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct AuxiliaryGraph {
     #[merge(skip)]
     pub edges: Vec<String>,
 
     #[merge(strategy = merge_attributes)]
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
 }
 
 impl AuxiliaryGraph {
-    pub fn new(edges: Vec<String>) -> AuxiliaryGraph {
-        AuxiliaryGraph { edges, attributes: None }
+    pub fn new(edges: Vec<String>, attributes: Vec<Attribute>) -> AuxiliaryGraph {
+        AuxiliaryGraph { edges, attributes }
     }
 }
 
@@ -482,9 +497,14 @@ impl Response {
 #[schemars(example = "example_query")]
 pub struct Query {
     pub workflow: Option<Vec<Workflow>>,
+
     pub message: Message,
+
     pub log_level: Option<LogLevel>,
+
     pub submitter: Option<String>,
+
+    pub bypass_cache: Option<bool>,
 }
 
 fn example_query() -> Query {
@@ -505,10 +525,17 @@ fn example_query() -> Query {
 #[schemars(example = "example_asyncquery")]
 pub struct AsyncQuery {
     pub workflow: Option<Vec<Workflow>>,
+
     pub message: Message,
+
+    #[schemars(regex(pattern = r"^https?://"))]
     pub callback: String,
+
     pub log_level: Option<LogLevel>,
+
     pub submitter: Option<String>,
+
+    pub bypass_cache: Option<bool>,
 }
 
 fn example_asyncquery() -> AsyncQuery {
@@ -548,7 +575,7 @@ impl AsyncQueryResponse {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct AsyncQueryStatusResponse {
-    pub status: String,
+    pub status: AsyncQueryStatusResponseStatusEnum,
 
     pub description: String,
 
@@ -599,11 +626,15 @@ pub struct MetaEdge {
     pub knowledge_types: Option<Vec<String>>,
 
     pub attributes: Option<Vec<MetaAttribute>>,
+
+    pub qualifiers: Option<Vec<MetaQualifier>>,
+
+    pub association: Option<BiolinkEntity>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct MetaKnowledgeGraph {
-    pub edges: HashMap<String, MetaEdge>,
+    pub edges: Vec<MetaEdge>,
     pub nodes: HashMap<String, MetaNode>,
 }
 
@@ -860,7 +891,7 @@ mod test {
 
     #[test]
     fn test_log_entry() {
-        let log_entry = LogEntry::new(Some(LogLevel::ERROR), Some("QueryNotTraversable".to_string()), Some("message".to_string()));
+        let log_entry = LogEntry::new(Some(LogLevel::ERROR), Some("QueryNotTraversable".to_string()), "message".to_string());
         println!("{}", serde_json::to_string_pretty(&log_entry).unwrap());
         assert!(true);
     }
