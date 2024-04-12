@@ -444,8 +444,8 @@ pub struct AuxiliaryGraph {
 }
 
 impl AuxiliaryGraph {
-    pub fn new(edges: Vec<String>, attributes: Vec<Attribute>) -> AuxiliaryGraph {
-        AuxiliaryGraph { edges, attributes }
+    pub fn new(edges: Vec<String>) -> AuxiliaryGraph {
+        AuxiliaryGraph { edges, attributes: vec![] }
     }
 }
 
