@@ -36,15 +36,6 @@ pub enum ResourceRoleEnum {
     SupportingDataSource,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub enum AsyncQueryStatusResponseStatusEnum {
-    QUEUED,
-    RUNNING,
-    COMPLETED,
-    FAILED,
-}
-
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct LogEntry {
@@ -583,7 +574,7 @@ impl AsyncQueryResponse {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AsyncQueryStatusResponse {
-    pub status: AsyncQueryStatusResponseStatusEnum,
+    pub status: String,
 
     pub description: String,
 
