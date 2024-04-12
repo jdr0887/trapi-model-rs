@@ -109,8 +109,8 @@ pub struct EdgeBinding {
 }
 
 impl EdgeBinding {
-    pub fn new(id: String, attributes: Vec<Attribute>) -> EdgeBinding {
-        EdgeBinding { id, attributes }
+    pub fn new(id: String) -> EdgeBinding {
+        EdgeBinding { id, attributes: vec![] }
     }
 }
 
