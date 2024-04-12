@@ -609,7 +609,7 @@ pub struct MetaKnowledgeGraph {
 
 #[cfg(test)]
 mod test {
-    use crate::{Analysis, Attribute, EdgeBinding, LogEntry, LogLevel, Message, NodeBinding, Query, ResourceRoleEnum, Response, CURIE};
+    use crate::{Analysis, AsyncQuery, Attribute, EdgeBinding, LogEntry, LogLevel, Message, NodeBinding, Query, ResourceRoleEnum, Response, CURIE};
     use merge_hashmap::Merge;
     use serde::Deserializer;
     use serde_json::{Result, Value};
@@ -839,23 +839,24 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn scratch() {
-        let data = fs::read_to_string("/tmp/asdf.pretty.json").unwrap();
+        let data = fs::read_to_string("/home/jdr0887/workspace/github/TranslatorSRI/CQS-rs/asdf.json").unwrap();
+        let query: AsyncQuery = serde_json::from_str(&data).unwrap();
         // let data = fs::read_to_string("/tmp/scratch-icees.json").unwrap();
         // let data = fs::read_to_string("/tmp/response_1683229618787.json").unwrap();
-        let potential_query: Result<Query> = serde_json::from_str(data.as_str());
-        match potential_query {
-            Err(error) => {
-                println!("{}", error);
-                assert!(false);
-            }
-            Ok(query) => {
-                // let pretty_query = serde_json::to_string_pretty(&query).unwrap();
-                // fs::write("/tmp/scratch-icees.pretty.json", pretty_query).unwrap();
-                assert!(true);
-            }
-        }
+        // let potential_query: Result<Query> = serde_json::from_str(data.as_str());
+        // match potential_query {
+        //     Err(error) => {
+        //         println!("{}", error);
+        //         assert!(false);
+        //     }
+        //     Ok(query) => {
+        //         // let pretty_query = serde_json::to_string_pretty(&query).unwrap();
+        //         // fs::write("/tmp/scratch-icees.pretty.json", pretty_query).unwrap();
+        //         assert!(true);
+        //     }
+        // }
+        assert!(true);
     }
 
     #[test]
