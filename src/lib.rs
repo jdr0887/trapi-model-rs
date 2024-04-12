@@ -294,17 +294,13 @@ pub struct Node {
     #[merge(strategy = merge_attributes)]
     pub attributes: Vec<Attribute>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub is_set: Option<bool>,
 }
 
-fn merge_node_categories(left: &mut Option<Vec<BiolinkEntity>>, right: Option<Vec<BiolinkEntity>>) {
-    if let Some(new) = right {
-        if let Some(original) = left {
-            original.extend(new);
-        } else {
-            *left = Some(new);
-        }
-    }
+fn merge_node_categories(left: &mut Vec<BiolinkEntity>, right: Vec<BiolinkEntity>) {
+    left.extend(right);
+    left.dedup();
 }
 
 #[skip_serializing_none]
@@ -323,7 +319,7 @@ pub struct Edge {
     #[merge(strategy = merge_hashmap::vec::append)]
     pub sources: Vec<RetrievalSource>,
 
-    #[merge(strategy = merge_attributes)]
+    #[merge(strategy = merge_optional_attributes)]
     pub attributes: Option<Vec<Attribute>>,
 
     #[merge(strategy = merge_edge_qualifiers)]
@@ -343,7 +339,7 @@ impl Edge {
     }
 }
 
-fn merge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
+fn merge_optional_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
     if let Some(new) = right {
         if let Some(original) = left {
             original.extend(new);
@@ -359,6 +355,18 @@ fn merge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribu
             *left = Some(new);
         }
     }
+}
+
+fn merge_attributes(left: &mut Vec<Attribute>, right: Vec<Attribute>) {
+    left.extend(right);
+    left.sort_by(
+        |a, b| match (&a.attribute_type_id, &b.attribute_type_id, &a.original_attribute_name, &b.original_attribute_name) {
+            (a_ati, b_ati, Some(a_oan), Some(b_oan)) => a_ati.cmp(b_ati).then(a_oan.cmp(b_oan)),
+            (a_ati, b_ati, None, None) => a_ati.cmp(b_ati),
+            (_, _, _, _) => Ordering::Less,
+        },
+    );
+    left.dedup();
 }
 
 fn merge_edge_qualifiers(left: &mut Option<Vec<Qualifier>>, right: Option<Vec<Qualifier>>) {
