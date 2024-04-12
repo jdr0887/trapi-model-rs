@@ -573,7 +573,7 @@ impl AsyncQueryResponse {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AsyncQueryStatusResponse {
     pub status: AsyncQueryStatusResponseStatusEnum,
 
