@@ -191,6 +191,20 @@ pub struct AttributeConstraint {
     pub unit_name: Option<String>,
 }
 
+impl AttributeConstraint {
+    pub fn new(id: CURIE, name: String, operator: String, value: Value) -> AttributeConstraint {
+        AttributeConstraint {
+            id,
+            name,
+            operator,
+            value,
+            not: None,
+            unit_id: None,
+            unit_name: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Qualifier {
     #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
