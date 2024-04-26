@@ -28,7 +28,7 @@ pub enum KnowledgeType {
     INFERRED,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceRoleEnum {
     PrimaryKnowledgeSource,
@@ -263,9 +263,10 @@ pub struct QueryGraph {
     pub edges: BTreeMap<String, QEdge>,
     pub nodes: BTreeMap<String, QNode>,
 }
+// #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, Merge)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct RetrievalSource {
     #[merge(skip)]
     pub resource_id: CURIE,
