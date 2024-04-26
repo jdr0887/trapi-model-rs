@@ -28,7 +28,7 @@ pub enum KnowledgeType {
     INFERRED,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceRoleEnum {
     PrimaryKnowledgeSource,
@@ -310,6 +310,7 @@ pub struct Node {
 
 fn merge_node_categories(left: &mut Vec<BiolinkEntity>, right: Vec<BiolinkEntity>) {
     left.extend(right);
+    left.sort();
     left.dedup();
 }
 
@@ -338,6 +339,11 @@ pub struct Edge {
 
 fn merge_edge_sources(left: &mut Vec<RetrievalSource>, right: Vec<RetrievalSource>) {
     left.extend(right);
+    left.sort_by(|a, b| {
+        let first = a.resource_id.cmp(&b.resource_id);
+        let second = a.resource_role.cmp(&b.resource_role);
+        first.then(second)
+    });
     left.dedup();
 }
 
