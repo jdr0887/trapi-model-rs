@@ -265,14 +265,18 @@ pub struct QueryGraph {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct RetrievalSource {
+    #[merge(skip)]
     pub resource_id: CURIE,
 
+    #[merge(skip)]
     pub resource_role: ResourceRoleEnum,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub upstream_resource_ids: Option<Vec<CURIE>>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub source_record_urls: Option<Vec<String>>,
 }
 
