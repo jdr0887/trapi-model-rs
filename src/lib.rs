@@ -321,7 +321,7 @@ pub struct Edge {
     #[merge(skip)]
     pub object: CURIE,
 
-    #[merge(strategy = merge_hashmap::vec::append)]
+    #[merge(strategy = merge_edge_sources)]
     pub sources: Vec<RetrievalSource>,
 
     #[merge(strategy = merge_optional_attributes)]
@@ -329,6 +329,11 @@ pub struct Edge {
 
     #[merge(strategy = merge_edge_qualifiers)]
     pub qualifiers: Option<Vec<Qualifier>>,
+}
+
+fn merge_edge_sources(left: &mut Vec<RetrievalSource>, right: Vec<RetrievalSource>) {
+    left.extend(right);
+    left.dedup();
 }
 
 impl Edge {
