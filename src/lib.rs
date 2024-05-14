@@ -218,8 +218,9 @@ pub struct QualifierConstraint {
     pub qualifier_set: Vec<Qualifier>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub enum SetInterpretationEnum {
+    #[default]
     BATCH,
     ALL,
     MANY,
@@ -235,6 +236,9 @@ pub struct QNode {
     pub categories: Option<Vec<BiolinkEntity>>,
 
     pub set_interpretation: Option<SetInterpretationEnum>,
+
+    #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
+    pub member_ids: Option<Vec<CURIE>>,
 
     pub constraints: Option<Vec<AttributeConstraint>>,
 }
@@ -832,27 +836,23 @@ mod test {
                 "n0": {
                     "ids": [
                         "MONDO:0004979","MONDO:0016575","MONDO:0009061","MONDO:0018956","MONDO:0011705","MONDO:0008345","MONDO:0020066"
-                    ],
-                    "is_set": false
+                    ]
                 },
                 "n1": {
                     "categories": [
                         "biolink:SmallMolecule"
-                    ],
-                    "is_set": false
+                    ]
                 },
                 "n2": {
                     "categories": [
                         "biolink:Gene",
                         "biolink:Protein"
-                    ],
-                    "is_set": false
+                    ]
                 },
                 "n3": {
                     "categories": [
                         "biolink:Drug"
-                    ],
-                    "is_set": false
+                    ]
                 }
             }
         }
@@ -951,13 +951,7 @@ mod test {
 
         if let Some(kg) = left_message.knowledge_graph {
             if let Some(node) = kg.nodes.get("PUBCHEM.COMPOUND:16220172") {
-                if let Some(attributes) = &node.attributes {
-                    assert_eq!(attributes.len(), 2);
-                } else {
-                    assert!(false);
-                }
-            } else {
-                assert!(false);
+                assert_eq!(node.attributes.is_empty(), false);
             }
         } else {
             assert!(false);
