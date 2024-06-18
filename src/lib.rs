@@ -440,7 +440,7 @@ pub struct Message {
 
 // merging the hard way since Attributes can recurse...which Rust struggles with
 fn merge_message_results(left_results: &mut Option<Vec<Result>>, right_results: Option<Vec<Result>>) {
-    if let Some(right) = right_results {
+    if let Some(right) = right_results.clone() {
         if let Some(left) = left_results {
             right.iter().for_each(|right_result| {
                 let right_result_ids: Vec<(String, String)> = right_result
@@ -449,7 +449,7 @@ fn merge_message_results(left_results: &mut Option<Vec<Result>>, right_results: 
                     .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
                     .collect();
 
-                if let Some(mut found_left_result) = left.iter_mut().find(|left_result| {
+                if let Some(found_left_result) = left.iter_mut().find(|left_result| {
                     let left_result_ids: Vec<(String, String)> = left_result
                         .node_bindings
                         .iter()
@@ -479,7 +479,7 @@ fn merge_message_results(left_results: &mut Option<Vec<Result>>, right_results: 
                     // deal with NodeBindings
                     for key in right_result.node_bindings.keys() {
                         if let (Some(orig_nbs), Some(new_nb)) = (found_left_result.node_bindings.get_mut(key), right_result.node_bindings.get(key)) {
-                            orig_nbs.iter_mut().for_each(|mut onb| {
+                            orig_nbs.iter_mut().for_each(|onb| {
                                 if let Some(fnb) = new_nb.iter().find(|nnb| nnb.id == onb.id) {
                                     onb.attributes.extend(fnb.attributes.clone());
                                 }
@@ -495,7 +495,7 @@ fn merge_message_results(left_results: &mut Option<Vec<Result>>, right_results: 
                 }
             });
         } else {
-            *left_results = right_results.clone();
+            *left_results = right_results;
         }
     }
 }
