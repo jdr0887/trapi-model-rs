@@ -1,6 +1,6 @@
 [package]
 name = "trapi-model-rs"
-version = "1.4.0"
+version = "1.5.0"
 authors = ["Jason Reilly <jdr0887@gmail.com>"]
 edition = "2021"
 
