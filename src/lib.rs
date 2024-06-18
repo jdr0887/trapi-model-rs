@@ -439,35 +439,35 @@ pub struct Message {
 }
 
 // merging the hard way since Attributes can recurse...which Rust struggles with
-fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Result>>) {
-    if let Some(new) = right {
-        if let Some(original) = left {
-            original.iter_mut().for_each(|mut orig_result| {
-                let orig_result_ids: Vec<(String, String)> = orig_result
+fn merge_message_results(left_results: &mut Option<Vec<Result>>, right_results: Option<Vec<Result>>) {
+    if let Some(right) = right_results {
+        if let Some(left) = left_results {
+            right.iter().for_each(|right_result| {
+                let right_result_ids: Vec<(String, String)> = right_result
                     .node_bindings
                     .iter()
                     .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
                     .collect();
 
-                if let Some(found_new_result) = new.iter().find(|new_result| {
-                    let new_result_ids: Vec<(String, String)> = new_result
+                if let Some(mut found_left_result) = left.iter_mut().find(|left_result| {
+                    let left_result_ids: Vec<(String, String)> = left_result
                         .node_bindings
                         .iter()
                         .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
                         .collect();
-                    orig_result_ids == new_result_ids
+                    left_result_ids == right_result_ids
                 }) {
                     // deal with Analyses
-                    orig_result.analyses.iter_mut().for_each(|orig_analysis| {
-                        if let Some(other_analysis) = found_new_result.analyses.iter().find(|found_new_result_analysis| {
-                            if let (Some(orig_score), Some(other_score)) = (orig_analysis.score, found_new_result_analysis.score) {
-                                found_new_result_analysis.resource_id == orig_analysis.resource_id && OrderedFloat(orig_score) == OrderedFloat(other_score)
+                    right_result.analyses.iter().for_each(|right_analysis| {
+                        if let Some(left_analysis) = found_left_result.analyses.iter_mut().find(|found_left_result_analysis| {
+                            if let (Some(left_score), Some(right_score)) = (found_left_result_analysis.score, right_analysis.score) {
+                                found_left_result_analysis.resource_id == right_analysis.resource_id && OrderedFloat(left_score) == OrderedFloat(right_score)
                             } else {
                                 false
                             }
                         }) {
-                            for key in orig_analysis.clone().edge_bindings.keys() {
-                                if let (Some(orig_ebs), Some(other_ebs)) = (orig_analysis.edge_bindings.get_mut(key), other_analysis.edge_bindings.get(key)) {
+                            for key in left_analysis.clone().edge_bindings.keys() {
+                                if let (Some(orig_ebs), Some(other_ebs)) = (left_analysis.edge_bindings.get_mut(key), right_analysis.edge_bindings.get(key)) {
                                     orig_ebs.extend(other_ebs.clone());
                                 }
                             }
@@ -477,8 +477,8 @@ fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Resul
                     // orig_result.analyses.extend(found_new_result.analyses.clone());
 
                     // deal with NodeBindings
-                    for key in found_new_result.node_bindings.keys() {
-                        if let (Some(orig_nbs), Some(new_nb)) = (orig_result.node_bindings.get_mut(key), found_new_result.node_bindings.get(key)) {
+                    for key in right_result.node_bindings.keys() {
+                        if let (Some(orig_nbs), Some(new_nb)) = (found_left_result.node_bindings.get_mut(key), right_result.node_bindings.get(key)) {
                             orig_nbs.iter_mut().for_each(|mut onb| {
                                 if let Some(fnb) = new_nb.iter().find(|nnb| nnb.id == onb.id) {
                                     onb.attributes.extend(fnb.attributes.clone());
@@ -490,10 +490,12 @@ fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Resul
 
                     // println!("orig_result: {:?}", orig_result);
                     // println!("new_result: {:?}", found_new_result);
+                } else {
+                    left.push(right_result.clone())
                 }
             });
         } else {
-            *left = Some(new);
+            *left_results = right_results.clone();
         }
     }
 }
