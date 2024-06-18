@@ -1,3 +1,4 @@
 .dockerignore
 .idea
+Cargo.lock
 target
