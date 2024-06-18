@@ -1,5 +1,6 @@
 use chrono::SecondsFormat;
 use merge_hashmap::Merge;
+use ordered_float::OrderedFloat;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -437,10 +438,60 @@ pub struct Message {
     pub auxiliary_graphs: Option<BTreeMap<String, AuxiliaryGraph>>,
 }
 
+// merging the hard way since Attributes can recurse...which Rust struggles with
 fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Result>>) {
     if let Some(new) = right {
         if let Some(original) = left {
-            original.extend(new);
+            original.iter_mut().for_each(|mut orig_result| {
+                let orig_result_ids: Vec<(String, String)> = orig_result
+                    .node_bindings
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
+                    .collect();
+
+                if let Some(found_new_result) = new.iter().find(|new_result| {
+                    let new_result_ids: Vec<(String, String)> = new_result
+                        .node_bindings
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
+                        .collect();
+                    orig_result_ids == new_result_ids
+                }) {
+                    // deal with Analyses
+                    orig_result.analyses.iter_mut().for_each(|orig_analysis| {
+                        if let Some(other_analysis) = found_new_result.analyses.iter().find(|found_new_result_analysis| {
+                            if let (Some(orig_score), Some(other_score)) = (orig_analysis.score, found_new_result_analysis.score) {
+                                found_new_result_analysis.resource_id == orig_analysis.resource_id && OrderedFloat(orig_score) == OrderedFloat(other_score)
+                            } else {
+                                false
+                            }
+                        }) {
+                            for key in orig_analysis.clone().edge_bindings.keys() {
+                                if let (Some(orig_ebs), Some(other_ebs)) = (orig_analysis.edge_bindings.get_mut(key), other_analysis.edge_bindings.get(key)) {
+                                    orig_ebs.extend(other_ebs.clone());
+                                }
+                            }
+                        }
+                    });
+
+                    // orig_result.analyses.extend(found_new_result.analyses.clone());
+
+                    // deal with NodeBindings
+                    for key in found_new_result.node_bindings.keys() {
+                        if let (Some(orig_nbs), Some(new_nb)) = (orig_result.node_bindings.get_mut(key), found_new_result.node_bindings.get(key)) {
+                            orig_nbs.iter_mut().for_each(|mut onb| {
+                                if let Some(fnb) = new_nb.iter().find(|nnb| nnb.id == onb.id) {
+                                    onb.attributes.extend(fnb.attributes.clone());
+                                }
+                                onb.attributes.dedup();
+                            });
+                        }
+                    }
+
+                    // println!("orig_result: {:?}", orig_result);
+                    // println!("new_result: {:?}", found_new_result);
+                }
+            });
         } else {
             *left = Some(new);
         }
@@ -956,6 +1007,40 @@ mod test {
         } else {
             assert!(false);
         }
+    }
+
+    #[test]
+    fn test_merge_message_results() {
+        let left_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderChembl-7bca933e-ca13-4ffb-a35f-2a6283f8ed68-post.json").unwrap();
+        let left_query: Query = serde_json::from_str(&left_query_data).unwrap();
+        let mut left_message = left_query.message;
+
+        let right_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderTMKPTargeted-9aa17f51-6f2d-4049-962b-cc2518f29ba4-post.json").unwrap();
+        let right_query: Query = serde_json::from_str(&right_query_data).unwrap();
+        let right_message = right_query.message;
+
+        let before_merge = match &left_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        left_message.merge(right_message);
+
+        let after_merge = match &left_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+
+        fs::write(std::path::Path::new("/tmp/asdf.json"), serde_json::to_string_pretty(&left_message).unwrap()).expect("failed to write output");
+
+        // assert!(before_merge < after_merge);
+        //
+        // if let Some(kg) = left_message.knowledge_graph {
+        //     if let Some(node) = kg.nodes.get("PUBCHEM.COMPOUND:134587348") {
+        //         assert_eq!(node.attributes.is_empty(), false);
+        //     }
+        // } else {
+        //     assert!(false);
+        // }
     }
 
     #[test]
