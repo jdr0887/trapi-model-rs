@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 chrono = "^0.4"
 merge-hashmap = { version = "^0.1", features = ["default", "merge_derive-hashmap"] }
+ordered-float = "^4.2"
 rocket_okapi = { version = "0.8.0", features = ["swagger", "rapidoc"] }
 serde = { version = "^1.0", features = ["derive", "serde_derive"] }
 serde_derive = "^1.0"
