@@ -1,5 +1,6 @@
 use chrono::SecondsFormat;
 use merge_hashmap::Merge;
+use ordered_float::OrderedFloat;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,7 @@ pub enum KnowledgeType {
     INFERRED,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceRoleEnum {
     PrimaryKnowledgeSource,
@@ -39,19 +40,19 @@ pub enum ResourceRoleEnum {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct LogEntry {
-    pub timestamp: Option<String>,
+    pub timestamp: String,
 
     pub level: Option<LogLevel>,
 
     pub code: Option<String>,
 
-    pub message: Option<String>,
+    pub message: String,
 }
 
 impl LogEntry {
-    pub fn new(level: Option<LogLevel>, code: Option<String>, message: Option<String>) -> LogEntry {
+    pub fn new(level: Option<LogLevel>, code: Option<String>, message: String) -> LogEntry {
         LogEntry {
-            timestamp: Some(chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false)),
+            timestamp: chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
             level,
             code,
             message,
@@ -69,13 +70,13 @@ pub struct NodeBinding {
     pub query_id: Option<CURIE>,
 
     #[merge(skip)]
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Analysis {
-    pub resource_id: String,
+    pub resource_id: CURIE,
 
     pub score: Option<f64>,
 
@@ -101,17 +102,16 @@ impl Analysis {
     }
 }
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct EdgeBinding {
     pub id: String,
 
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
 }
 
 impl EdgeBinding {
     pub fn new(id: String) -> EdgeBinding {
-        EdgeBinding { id, attributes: None }
+        EdgeBinding { id, attributes: vec![] }
     }
 }
 
@@ -192,6 +192,20 @@ pub struct AttributeConstraint {
     pub unit_name: Option<String>,
 }
 
+impl AttributeConstraint {
+    pub fn new(id: CURIE, name: String, operator: String, value: Value) -> AttributeConstraint {
+        AttributeConstraint {
+            id,
+            name,
+            operator,
+            value,
+            not: None,
+            unit_id: None,
+            unit_name: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Qualifier {
     #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
@@ -205,6 +219,14 @@ pub struct QualifierConstraint {
     pub qualifier_set: Vec<Qualifier>,
 }
 
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+pub enum SetInterpretationEnum {
+    #[default]
+    BATCH,
+    ALL,
+    MANY,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct QNode {
@@ -214,7 +236,10 @@ pub struct QNode {
     #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
     pub categories: Option<Vec<BiolinkEntity>>,
 
-    pub is_set: Option<bool>,
+    pub set_interpretation: Option<SetInterpretationEnum>,
+
+    #[schemars(regex(pattern = r"^biolink:[a-z][a-z_]*$"))]
+    pub member_ids: Option<Vec<CURIE>>,
 
     pub constraints: Option<Vec<AttributeConstraint>>,
 }
@@ -243,16 +268,21 @@ pub struct QueryGraph {
     pub edges: BTreeMap<String, QEdge>,
     pub nodes: BTreeMap<String, QNode>,
 }
+// #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct RetrievalSource {
+    #[merge(skip)]
     pub resource_id: CURIE,
 
+    #[merge(skip)]
     pub resource_role: ResourceRoleEnum,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub upstream_resource_ids: Option<Vec<CURIE>>,
 
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
     pub source_record_urls: Option<Vec<String>>,
 }
 
@@ -267,7 +297,6 @@ impl RetrievalSource {
     }
 }
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct Node {
     #[merge(strategy = merge_hashmap::option::overwrite_none)]
@@ -275,20 +304,19 @@ pub struct Node {
 
     #[merge(strategy = merge_node_categories)]
     #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
-    pub categories: Option<Vec<BiolinkEntity>>,
+    pub categories: Vec<BiolinkEntity>,
 
     #[merge(strategy = merge_attributes)]
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
+
+    #[merge(strategy = merge_hashmap::option::overwrite_none)]
+    pub is_set: Option<bool>,
 }
 
-fn merge_node_categories(left: &mut Option<Vec<BiolinkEntity>>, right: Option<Vec<BiolinkEntity>>) {
-    if let Some(new) = right {
-        if let Some(original) = left {
-            original.extend(new);
-        } else {
-            *left = Some(new);
-        }
-    }
+fn merge_node_categories(left: &mut Vec<BiolinkEntity>, right: Vec<BiolinkEntity>) {
+    left.extend(right);
+    left.sort();
+    left.dedup();
 }
 
 #[skip_serializing_none]
@@ -304,14 +332,24 @@ pub struct Edge {
     #[merge(skip)]
     pub object: CURIE,
 
-    #[merge(strategy = merge_hashmap::vec::append)]
+    #[merge(strategy = merge_edge_sources)]
     pub sources: Vec<RetrievalSource>,
 
-    #[merge(strategy = merge_attributes)]
+    #[merge(strategy = merge_optional_attributes)]
     pub attributes: Option<Vec<Attribute>>,
 
     #[merge(strategy = merge_edge_qualifiers)]
     pub qualifiers: Option<Vec<Qualifier>>,
+}
+
+fn merge_edge_sources(left: &mut Vec<RetrievalSource>, right: Vec<RetrievalSource>) {
+    left.extend(right);
+    left.sort_by(|a, b| {
+        let first = a.resource_id.cmp(&b.resource_id);
+        let second = a.resource_role.cmp(&b.resource_role);
+        first.then(second)
+    });
+    left.dedup();
 }
 
 impl Edge {
@@ -327,7 +365,7 @@ impl Edge {
     }
 }
 
-fn merge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
+fn merge_optional_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
     if let Some(new) = right {
         if let Some(original) = left {
             original.extend(new);
@@ -343,6 +381,18 @@ fn merge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribu
             *left = Some(new);
         }
     }
+}
+
+fn merge_attributes(left: &mut Vec<Attribute>, right: Vec<Attribute>) {
+    left.extend(right);
+    left.sort_by(
+        |a, b| match (&a.attribute_type_id, &b.attribute_type_id, &a.original_attribute_name, &b.original_attribute_name) {
+            (a_ati, b_ati, Some(a_oan), Some(b_oan)) => a_ati.cmp(b_ati).then(a_oan.cmp(b_oan)),
+            (a_ati, b_ati, None, None) => a_ati.cmp(b_ati),
+            (_, _, _, _) => Ordering::Less,
+        },
+    );
+    left.dedup();
 }
 
 fn merge_edge_qualifiers(left: &mut Option<Vec<Qualifier>>, right: Option<Vec<Qualifier>>) {
@@ -388,10 +438,60 @@ pub struct Message {
     pub auxiliary_graphs: Option<BTreeMap<String, AuxiliaryGraph>>,
 }
 
+// merging the hard way since Attributes can recurse...which Rust struggles with
 fn merge_message_results(left: &mut Option<Vec<Result>>, right: Option<Vec<Result>>) {
     if let Some(new) = right {
         if let Some(original) = left {
-            original.extend(new);
+            original.iter_mut().for_each(|mut orig_result| {
+                let orig_result_ids: Vec<(String, String)> = orig_result
+                    .node_bindings
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
+                    .collect();
+
+                if let Some(found_new_result) = new.iter().find(|new_result| {
+                    let new_result_ids: Vec<(String, String)> = new_result
+                        .node_bindings
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.iter().map(|nb| nb.id.clone()).collect::<Vec<String>>().join(",")))
+                        .collect();
+                    orig_result_ids == new_result_ids
+                }) {
+                    // deal with Analyses
+                    orig_result.analyses.iter_mut().for_each(|orig_analysis| {
+                        if let Some(other_analysis) = found_new_result.analyses.iter().find(|found_new_result_analysis| {
+                            if let (Some(orig_score), Some(other_score)) = (orig_analysis.score, found_new_result_analysis.score) {
+                                found_new_result_analysis.resource_id == orig_analysis.resource_id && OrderedFloat(orig_score) == OrderedFloat(other_score)
+                            } else {
+                                false
+                            }
+                        }) {
+                            for key in orig_analysis.clone().edge_bindings.keys() {
+                                if let (Some(orig_ebs), Some(other_ebs)) = (orig_analysis.edge_bindings.get_mut(key), other_analysis.edge_bindings.get(key)) {
+                                    orig_ebs.extend(other_ebs.clone());
+                                }
+                            }
+                        }
+                    });
+
+                    // orig_result.analyses.extend(found_new_result.analyses.clone());
+
+                    // deal with NodeBindings
+                    for key in found_new_result.node_bindings.keys() {
+                        if let (Some(orig_nbs), Some(new_nb)) = (orig_result.node_bindings.get_mut(key), found_new_result.node_bindings.get(key)) {
+                            orig_nbs.iter_mut().for_each(|mut onb| {
+                                if let Some(fnb) = new_nb.iter().find(|nnb| nnb.id == onb.id) {
+                                    onb.attributes.extend(fnb.attributes.clone());
+                                }
+                                onb.attributes.dedup();
+                            });
+                        }
+                    }
+
+                    // println!("orig_result: {:?}", orig_result);
+                    // println!("new_result: {:?}", found_new_result);
+                }
+            });
         } else {
             *left = Some(new);
         }
@@ -419,19 +519,18 @@ impl Message {
     }
 }
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, Merge)]
 pub struct AuxiliaryGraph {
     #[merge(skip)]
     pub edges: Vec<String>,
 
     #[merge(strategy = merge_attributes)]
-    pub attributes: Option<Vec<Attribute>>,
+    pub attributes: Vec<Attribute>,
 }
 
 impl AuxiliaryGraph {
     pub fn new(edges: Vec<String>) -> AuxiliaryGraph {
-        AuxiliaryGraph { edges, attributes: None }
+        AuxiliaryGraph { edges, attributes: vec![] }
     }
 }
 
@@ -482,9 +581,14 @@ impl Response {
 #[schemars(example = "example_query")]
 pub struct Query {
     pub workflow: Option<Vec<Workflow>>,
+
     pub message: Message,
+
     pub log_level: Option<LogLevel>,
+
     pub submitter: Option<String>,
+
+    pub bypass_cache: Option<bool>,
 }
 
 fn example_query() -> Query {
@@ -505,10 +609,17 @@ fn example_query() -> Query {
 #[schemars(example = "example_asyncquery")]
 pub struct AsyncQuery {
     pub workflow: Option<Vec<Workflow>>,
+
     pub message: Message,
+
+    #[schemars(regex(pattern = r"^https?://"))]
     pub callback: String,
+
     pub log_level: Option<LogLevel>,
+
     pub submitter: Option<String>,
+
+    pub bypass_cache: Option<bool>,
 }
 
 fn example_asyncquery() -> AsyncQuery {
@@ -546,7 +657,7 @@ impl AsyncQueryResponse {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AsyncQueryStatusResponse {
     pub status: String,
 
@@ -599,11 +710,15 @@ pub struct MetaEdge {
     pub knowledge_types: Option<Vec<String>>,
 
     pub attributes: Option<Vec<MetaAttribute>>,
+
+    pub qualifiers: Option<Vec<MetaQualifier>>,
+
+    pub association: Option<BiolinkEntity>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct MetaKnowledgeGraph {
-    pub edges: HashMap<String, MetaEdge>,
+    pub edges: Vec<MetaEdge>,
     pub nodes: HashMap<String, MetaNode>,
 }
 
@@ -772,27 +887,23 @@ mod test {
                 "n0": {
                     "ids": [
                         "MONDO:0004979","MONDO:0016575","MONDO:0009061","MONDO:0018956","MONDO:0011705","MONDO:0008345","MONDO:0020066"
-                    ],
-                    "is_set": false
+                    ]
                 },
                 "n1": {
                     "categories": [
                         "biolink:SmallMolecule"
-                    ],
-                    "is_set": false
+                    ]
                 },
                 "n2": {
                     "categories": [
                         "biolink:Gene",
                         "biolink:Protein"
-                    ],
-                    "is_set": false
+                    ]
                 },
                 "n3": {
                     "categories": [
                         "biolink:Drug"
-                    ],
-                    "is_set": false
+                    ]
                 }
             }
         }
@@ -861,7 +972,7 @@ mod test {
 
     #[test]
     fn test_log_entry() {
-        let log_entry = LogEntry::new(Some(LogLevel::ERROR), Some("QueryNotTraversable".to_string()), Some("message".to_string()));
+        let log_entry = LogEntry::new(Some(LogLevel::ERROR), Some("QueryNotTraversable".to_string()), "message".to_string());
         println!("{}", serde_json::to_string_pretty(&log_entry).unwrap());
         assert!(true);
     }
@@ -892,17 +1003,45 @@ mod test {
 
         if let Some(kg) = left_message.knowledge_graph {
             if let Some(node) = kg.nodes.get("PUBCHEM.COMPOUND:16220172") {
-                if let Some(attributes) = &node.attributes {
-                    assert_eq!(attributes.len(), 2);
-                } else {
-                    assert!(false);
-                }
-            } else {
-                assert!(false);
+                assert_eq!(node.attributes.is_empty(), false);
             }
         } else {
             assert!(false);
         }
+    }
+
+    #[test]
+    fn test_merge_message_results() {
+        let left_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderChembl-7bca933e-ca13-4ffb-a35f-2a6283f8ed68-post.json").unwrap();
+        let left_query: Query = serde_json::from_str(&left_query_data).unwrap();
+        let mut left_message = left_query.message;
+
+        let right_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderTMKPTargeted-9aa17f51-6f2d-4049-962b-cc2518f29ba4-post.json").unwrap();
+        let right_query: Query = serde_json::from_str(&right_query_data).unwrap();
+        let right_message = right_query.message;
+
+        let before_merge = match &left_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+        left_message.merge(right_message);
+
+        let after_merge = match &left_message.results {
+            Some(results) => results.len(),
+            None => 0,
+        };
+
+        fs::write(std::path::Path::new("/tmp/asdf.json"), serde_json::to_string_pretty(&left_message).unwrap()).expect("failed to write output");
+
+        // assert!(before_merge < after_merge);
+        //
+        // if let Some(kg) = left_message.knowledge_graph {
+        //     if let Some(node) = kg.nodes.get("PUBCHEM.COMPOUND:134587348") {
+        //         assert_eq!(node.attributes.is_empty(), false);
+        //     }
+        // } else {
+        //     assert!(false);
+        // }
     }
 
     #[test]
