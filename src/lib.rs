@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub type BiolinkEntity = String;
 pub type BiolinkPredicate = String;
@@ -314,9 +314,14 @@ pub struct Node {
 }
 
 fn merge_node_categories(left: &mut Vec<BiolinkEntity>, right: Vec<BiolinkEntity>) {
-    left.extend(right);
-    left.sort();
-    left.dedup();
+    let mut sorted_set = BTreeSet::new();
+    left.iter().for_each(|r| {
+        sorted_set.insert(r);
+    });
+    right.iter().for_each(|r| {
+        sorted_set.insert(r);
+    });
+    *left = Vec::from_iter(sorted_set.into_iter().cloned());
 }
 
 #[skip_serializing_none]
@@ -1014,24 +1019,47 @@ mod test {
 
     #[test]
     fn test_merge_message_results() {
-        let left_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderChembl-7bca933e-ca13-4ffb-a35f-2a6283f8ed68-post.json").unwrap();
+        // ServiceProviderChembl-8920d7bd-c50a-4e6a-bbcd-bc7fe66e2676-post.json
+        // ServiceProviderSemMed-b07ccf52-2d29-407a-a0d7-806548856ca9-post.json
+        // ServiceProviderTMKPTargeted-ae4c0cc8-e9ce-42f0-b381-cc992714c35e-post.json
+        // ClinicalKPs-f3aca13c-8641-4f14-a6cf-7203b6efbfc0-post.json
+        // MoleProChembl-9157d9e9-aed0-437e-b2eb-fdba7b896380-post.json
+        // OpenPredict-ea7943cf-434d-4dce-bfea-60f057421132-post.json
+        // RTXKG2SemMed-e02a6a76-ae83-4298-bbfa-1cc2acda9ee3-post.json
+        // ServiceProviderAeolus-f20a402e-93d8-415a-b39c-4496ec05c330-post.json
+        // SpokeChembl-82bd1857-d5eb-4783-b621-0dce26639043-post.json
+
+        let left_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderTMKPTargeted-ae4c0cc8-e9ce-42f0-b381-cc992714c35e-post.json").unwrap();
         let left_query: Query = serde_json::from_str(&left_query_data).unwrap();
         let mut left_message = left_query.message;
 
-        let right_query_data = fs::read_to_string("/tmp/cqs/ServiceProviderTMKPTargeted-9aa17f51-6f2d-4049-962b-cc2518f29ba4-post.json").unwrap();
-        let right_query: Query = serde_json::from_str(&right_query_data).unwrap();
-        let right_message = right_query.message;
+        for file_to_merge in vec![
+            "ServiceProviderChembl-8920d7bd-c50a-4e6a-bbcd-bc7fe66e2676-post.json",
+            "ServiceProviderSemMed-b07ccf52-2d29-407a-a0d7-806548856ca9-post.json",
+            "ClinicalKPs-f3aca13c-8641-4f14-a6cf-7203b6efbfc0-post.json",
+            "MoleProChembl-9157d9e9-aed0-437e-b2eb-fdba7b896380-post.json",
+            "OpenPredict-ea7943cf-434d-4dce-bfea-60f057421132-post.json",
+            "RTXKG2SemMed-e02a6a76-ae83-4298-bbfa-1cc2acda9ee3-post.json",
+            "ServiceProviderAeolus-f20a402e-93d8-415a-b39c-4496ec05c330-post.json",
+            "SpokeChembl-82bd1857-d5eb-4783-b621-0dce26639043-post.json",
+        ]
+        .iter()
+        {
+            let right_query_data = fs::read_to_string(format!("/tmp/cqs/{}", file_to_merge)).unwrap();
+            let right_query: Query = serde_json::from_str(&right_query_data).unwrap();
+            let right_message = right_query.message;
 
-        let before_merge = match &left_message.results {
-            Some(results) => results.len(),
-            None => 0,
-        };
-        left_message.merge(right_message);
+            let before_merge = match &left_message.results {
+                Some(results) => results.len(),
+                None => 0,
+            };
+            left_message.merge(right_message);
 
-        let after_merge = match &left_message.results {
-            Some(results) => results.len(),
-            None => 0,
-        };
+            let after_merge = match &left_message.results {
+                Some(results) => results.len(),
+                None => 0,
+            };
+        }
 
         fs::write(std::path::Path::new("/tmp/asdf.json"), serde_json::to_string_pretty(&left_message).unwrap()).expect("failed to write output");
 
