@@ -304,7 +304,7 @@ pub struct Node {
 
     #[merge(strategy = merge_node_categories)]
     #[schemars(regex(pattern = r"^biolink:[A-Z][a-zA-Z]*$"))]
-    pub categories: Vec<BiolinkEntity>,
+    pub categories: BTreeSet<BiolinkEntity>,
 
     #[merge(strategy = merge_attributes)]
     pub attributes: Vec<Attribute>,
@@ -313,15 +313,8 @@ pub struct Node {
     pub is_set: Option<bool>,
 }
 
-fn merge_node_categories(left: &mut Vec<BiolinkEntity>, right: Vec<BiolinkEntity>) {
-    let mut sorted_set = BTreeSet::new();
-    left.iter().for_each(|r| {
-        sorted_set.insert(r);
-    });
-    right.iter().for_each(|r| {
-        sorted_set.insert(r);
-    });
-    *left = Vec::from_iter(sorted_set.into_iter().cloned());
+fn merge_node_categories(left: &mut BTreeSet<BiolinkEntity>, right: BTreeSet<BiolinkEntity>) {
+    left.extend(right);
 }
 
 #[skip_serializing_none]
