@@ -333,7 +333,7 @@ pub struct Edge {
     #[merge(strategy = merge_edge_sources)]
     pub sources: Vec<RetrievalSource>,
 
-    #[merge(strategy = merge_optional_attributes)]
+    #[merge(strategy = merge_edge_attributes)]
     pub attributes: Option<Vec<Attribute>>,
 
     #[merge(strategy = merge_edge_qualifiers)]
@@ -363,7 +363,7 @@ impl Edge {
     }
 }
 
-fn merge_optional_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
+fn merge_edge_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Vec<Attribute>>) {
     if let Some(new) = right {
         if let Some(original) = left {
             original.extend(new);
@@ -379,18 +379,6 @@ fn merge_optional_attributes(left: &mut Option<Vec<Attribute>>, right: Option<Ve
             *left = Some(new);
         }
     }
-}
-
-fn merge_attributes(left: &mut Vec<Attribute>, right: Vec<Attribute>) {
-    left.extend(right);
-    left.sort_by(
-        |a, b| match (&a.attribute_type_id, &b.attribute_type_id, &a.original_attribute_name, &b.original_attribute_name) {
-            (a_ati, b_ati, Some(a_oan), Some(b_oan)) => a_ati.cmp(b_ati).then(a_oan.cmp(b_oan)),
-            (a_ati, b_ati, None, None) => a_ati.cmp(b_ati),
-            (_, _, _, _) => Ordering::Less,
-        },
-    );
-    left.dedup();
 }
 
 fn merge_edge_qualifiers(left: &mut Option<Vec<Qualifier>>, right: Option<Vec<Qualifier>>) {
@@ -526,6 +514,52 @@ pub struct AuxiliaryGraph {
 
     #[merge(strategy = merge_attributes)]
     pub attributes: Vec<Attribute>,
+}
+
+fn merge_attributes(left: &mut Vec<Attribute>, right: Vec<Attribute>) {
+    right.into_iter().for_each(|r| {
+        if let Some(found_left) = left.iter_mut().find(|l| l.attribute_type_id == r.attribute_type_id) {
+            match (&found_left.original_attribute_name, r.original_attribute_name) {
+                (None, Some(new)) => {
+                    found_left.original_attribute_name = Some(new);
+                }
+                (_, _) => {}
+            }
+            match (&found_left.value_type_id, r.value_type_id) {
+                (None, Some(new)) => {
+                    found_left.value_type_id = Some(new);
+                }
+                (_, _) => {}
+            }
+            match (&found_left.attribute_source, r.attribute_source) {
+                (None, Some(new)) => {
+                    found_left.attribute_source = Some(new);
+                }
+                (_, _) => {}
+            }
+            match (&found_left.value_url, r.value_url) {
+                (None, Some(new)) => {
+                    found_left.value_url = Some(new);
+                }
+                (_, _) => {}
+            }
+            match (&found_left.description, r.description) {
+                (None, Some(new)) => {
+                    found_left.description = Some(new);
+                }
+                (_, _) => {}
+            }
+            match (&found_left.attributes, r.attributes) {
+                (None, Some(new)) => {
+                    found_left.attributes = Some(new);
+                }
+                (_, _) => {}
+            }
+        } else {
+            left.push(r.clone());
+        }
+    });
+    left.sort_by(|a, b| a.attribute_type_id.cmp(&b.attribute_type_id));
 }
 
 impl AuxiliaryGraph {
