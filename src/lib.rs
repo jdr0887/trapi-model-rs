@@ -36,6 +36,17 @@ pub enum AgentType {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum KnowledgeLevelType {
+    KnowledgeAssertion,
+    LogicalEntailment,
+    Prediction,
+    StatisticalAssoctiation,
+    Observation,
+    NotProvided,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum KnowledgeType {
     LOOKUP,
