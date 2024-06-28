@@ -23,6 +23,19 @@ pub enum LogLevel {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentType {
+    ManualAgent,
+    AutomatedAgent,
+    DataAnalysisPipeline,
+    ComputationalModel,
+    TextMiningAgent,
+    ImageProcessingAgent,
+    ManualValidationOfAutomatedAgent,
+    NotProvided,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum KnowledgeType {
     LOOKUP,
